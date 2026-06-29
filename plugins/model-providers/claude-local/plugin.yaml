@@ -1,0 +1,5 @@
+name: claude-local-provider
+kind: model-provider
+version: 1.0.0
+description: Claude Code via local `claude` CLI subprocess (subscription auth, no API key)
+author: Hermes Agent

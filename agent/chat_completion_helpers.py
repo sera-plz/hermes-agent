@@ -235,6 +235,14 @@ def interruptible_api_call(agent, api_kwargs: dict):
                 )
             elif agent.api_mode == "anthropic_messages":
                 result["response"] = agent._anthropic_messages_create(api_kwargs)
+            elif agent.api_mode == "claude_local":
+                # Spawn the local `claude` CLI; returns an OpenAI-shaped
+                # response so the rest of the loop is unchanged.
+                from agent.claude_local_runtime import run_claude_local
+                result["response"] = run_claude_local(
+                    api_kwargs,
+                    interrupt_check=lambda: agent._interrupt_requested,
+                )
             elif agent.api_mode == "bedrock_converse":
                 # Bedrock uses boto3 directly — no OpenAI client needed.
                 # normalize_converse_response produces an OpenAI-compatible
@@ -610,6 +618,20 @@ def build_api_kwargs(agent, api_messages: list) -> dict:
             base_url=getattr(agent, "_anthropic_base_url", None),
             fast_mode=(agent.request_overrides or {}).get("speed") == "fast",
             drop_context_1m_beta=bool(getattr(agent, "_oauth_1m_beta_disabled", False)),
+        )
+
+    # Claude CLI subprocess — bypasses every HTTP client. The transport packs
+    # the OpenAI-format messages plus a __claude_local__ options bag that
+    # run_claude_local() turns into a `claude --print` invocation.
+    if agent.api_mode == "claude_local":
+        _clt = agent._get_transport()
+        return _clt.build_kwargs(
+            model=agent.model,
+            messages=api_messages,
+            tools=tools_for_api,
+            reasoning_config=agent.reasoning_config,
+            timeout=getattr(agent, "_request_timeout", None),
+            cwd=getattr(agent, "working_directory", None) or os.getcwd(),
         )
 
     # AWS Bedrock native Converse API — bypasses the OpenAI client entirely.
@@ -1789,6 +1811,39 @@ def interruptible_streaming_api_call(agent, api_kwargs: dict, *, on_first_delta=
             t.join(timeout=0.3)
             if agent._interrupt_requested:
                 raise InterruptedError("Agent interrupted during Bedrock API call")
+        if result["error"] is not None:
+            raise result["error"]
+        return result["response"]
+
+    # Claude CLI subprocess — streams assistant text deltas via the same
+    # callback surface as Anthropic/chat_completions, then returns the
+    # OpenAI-shaped response.
+    if agent.api_mode == "claude_local":
+        result = {"response": None, "error": None}
+
+        def _claude_local_call():
+            try:
+                from agent.claude_local_runtime import run_claude_local
+
+                def _on_text(text):
+                    if agent._has_stream_consumers():
+                        agent._fire_stream_delta(text)
+
+                result["response"] = run_claude_local(
+                    api_kwargs,
+                    on_text_delta=_on_text,
+                    on_first_delta=on_first_delta,
+                    interrupt_check=lambda: agent._interrupt_requested,
+                )
+            except Exception as e:
+                result["error"] = e
+
+        t = threading.Thread(target=_claude_local_call, daemon=True)
+        t.start()
+        while t.is_alive():
+            t.join(timeout=0.3)
+            if agent._interrupt_requested:
+                raise InterruptedError("Agent interrupted during claude_local call")
         if result["error"] is not None:
             raise result["error"]
         return result["response"]

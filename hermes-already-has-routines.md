@@ -153,7 +153,7 @@ Full automation blueprints gallery: [hermes-agent.nousresearch.com/docs/referenc
 
 Documentation: [hermes-agent.nousresearch.com](https://hermes-agent.nousresearch.com)
 
-GitHub: [github.com/NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent)
+GitHub: [github.com/sera-plz/hermes-agent](https://github.com/sera-plz/hermes-agent)
 
 ---
 

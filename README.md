@@ -139,6 +139,42 @@ You can still bring your own keys per-tool whenever you want — the gateway is 
 
 ---
 
+## Using your Claude Code subscription
+
+If you already pay for **Claude Code**, the `claude-local` provider routes each
+Hermes turn through the local `claude` CLI instead of the Anthropic HTTP API —
+so usage bills against your **subscription**, not API credits. No
+`ANTHROPIC_API_KEY` required.
+
+```bash
+# 1. Install Claude Code and sign in (one time)
+npm install -g @anthropic-ai/claude-code   # or see https://docs.claude.com/claude-code
+claude login
+
+# 2. Point Hermes at it
+hermes model            # pick "Claude Local (CLI subprocess)" — no API key prompt
+
+# 3. Use Hermes normally
+hermes -z "summarize this repo"
+```
+
+Or select it without the interactive picker:
+
+```bash
+hermes -z "hello" --provider claude-local -m claude-opus-4-8
+```
+
+How it works: Hermes spawns `claude --print` per turn (stateless — Hermes owns
+the history) and reads back the final assistant text. The subprocess uses its
+own native tools (Read/Edit/Bash) directly in your working directory. See
+[`CLAUDE_LOCAL_CONFIG.md`](./CLAUDE_LOCAL_CONFIG.md) for the config-file form and
+all environment-variable knobs.
+
+> Provenance: the subprocess technique is ported from Paperclip's
+> `packages/adapters/claude-local/` (`execute.ts` + `parse.ts`).
+
+---
+
 ## CLI vs Messaging Quick Reference
 
 Hermes has two entry points: start the terminal UI with `hermes`, or run the gateway and talk to it from Telegram, Discord, Slack, WhatsApp, Signal, or Email. Once you're in a conversation, many slash commands are shared across both interfaces.

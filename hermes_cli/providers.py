@@ -211,6 +211,16 @@ HERMES_OVERLAYS: Dict[str, HermesOverlay] = {
         transport="bedrock_converse",
         auth_type="aws_sdk",
     ),
+    # claude-local routes each turn through the local `claude` CLI subprocess
+    # (Claude Code subscription / OAuth in ~/.claude) instead of an HTTP API.
+    # auth_type="claude_cli" matches the provider profile and routes the picker
+    # to the "accounts" tab (no API key — the subprocess owns its own creds);
+    # see provider_catalog._ACCOUNTS_AUTH_TYPES.
+    "claude-local": HermesOverlay(
+        transport="claude_local",
+        auth_type="claude_cli",
+        base_url_override="",
+    ),
 }
 
 
@@ -279,6 +289,12 @@ ALIASES: Dict[str, str] = {
     # anthropic
     "claude": "anthropic",
     "claude-code": "anthropic",
+
+    # claude-local (Claude CLI subprocess; subscription auth)
+    "claude_local": "claude-local",
+    "claude-cli": "claude-local",
+    "claude-sub": "claude-local",
+    "claude-code-local": "claude-local",
 
     # github-copilot (models.dev ID)
     "copilot": "github-copilot",
@@ -373,6 +389,7 @@ _LABEL_OVERRIDES: Dict[str, str] = {
     "bedrock": "AWS Bedrock",
     "ollama-cloud": "Ollama Cloud",
     "xai-oauth": "xAI Grok OAuth (SuperGrok / Premium+)",
+    "claude-local": "Claude Local (CLI subprocess)",
 }
 
 
@@ -383,6 +400,7 @@ TRANSPORT_TO_API_MODE: Dict[str, str] = {
     "anthropic_messages": "anthropic_messages",
     "codex_responses": "codex_responses",
     "bedrock_converse": "bedrock_converse",
+    "claude_local": "claude_local",
 }
 
 
@@ -538,6 +556,12 @@ def determine_api_mode(provider: str, base_url: str = "") -> str:
       2. URL heuristics for unknown / custom providers.
       3. Default: 'chat_completions'.
     """
+    # claude-local routes through the local `claude` CLI subprocess rather than
+    # an HTTP wire protocol — short-circuit before any models.dev / URL
+    # heuristics. (Mirrors the bedrock special-case below.)
+    if normalize_provider(provider) == "claude-local":
+        return "claude_local"
+
     pdef = get_provider(provider)
     if pdef is not None:
         # Even for known providers, check URL heuristics for special endpoints

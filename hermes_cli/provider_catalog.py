@@ -49,6 +49,7 @@ _ACCOUNTS_AUTH_TYPES: frozenset[str] = frozenset(
         "oauth_minimax",
         "external_process",  # copilot-acp: spawns `copilot --acp --stdio`
         "copilot",           # GitHub Copilot token / gh auth
+        "claude_cli",        # claude-local: spawns `claude --print` (subscription OAuth)
     }
 )
 

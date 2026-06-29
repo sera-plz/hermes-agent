@@ -146,6 +146,14 @@ RUN npm install --prefer-offline --no-audit && \
 # not otherwise ship the CLI, so install it globally here and clean the
 # npm cache to keep the layer small. `claude --version` is run at build
 # time as a smoke test so a broken/missing binary fails the build loudly.
+#
+# DL3016 (pin npm version) is ignored for this install on purpose: the
+# claude-local provider needs an up-to-date `claude` that stays compatible
+# with the evolving Claude API, so we track latest and let the periodic
+# image rebuild pull fixes — same rationale as the DL3008 apt exception in
+# .hadolint.yaml. Inline (not a global ignore) so other npm installs still
+# get linted.
+# hadolint ignore=DL3016
 RUN npm install -g @anthropic-ai/claude-code && \
     npm cache clean --force && \
     claude --version

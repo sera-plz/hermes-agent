@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  IMAGE_NAME: sera-plz/hermes-agent
+  IMAGE_NAME: ancientsingularity/hermes-agent
 
 jobs:
   # Build, test, and optionally push the amd64 image.

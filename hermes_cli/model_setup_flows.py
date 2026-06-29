@@ -1825,6 +1825,79 @@ def _model_flow_copilot_acp(config, current_model=""):
 
     print(f"Default model set to: {selected} (via {pconfig.name})")
 
+
+def _model_flow_claude_local(config, current_model=""):
+    """Claude Local provider: route each turn through the local `claude` CLI.
+
+    There is no API-key step — auth comes from Claude's own credential store
+    (``claude login`` / ``~/.claude``), so usage bills against the Claude Code
+    subscription. We verify the CLI is installed (non-fatal: config can be set
+    ahead of install/login; the runtime surfaces a clear error otherwise) then
+    let the user pick a model from the provider's fallback list, since the CLI
+    has no ``/v1/models`` endpoint to enumerate.
+    """
+    from hermes_cli.auth import (
+        _prompt_model_selection,
+        _save_model_choice,
+        deactivate_provider,
+    )
+    from hermes_cli.config import load_config, save_config
+
+    del config
+
+    provider_id = "claude-local"
+
+    try:
+        from agent.claude_local_runtime import claude_local_available
+        available = claude_local_available()
+    except Exception:
+        available = False
+
+    if available:
+        print("  claude CLI: ✓ found on PATH")
+    else:
+        print("  claude CLI: not found on PATH.")
+        print("  Install Claude Code, then run `claude login`, before using this provider:")
+        print("    https://docs.claude.com/claude-code")
+    print("  Auth uses your Claude Code subscription (~/.claude) — no API key needed.")
+    print()
+
+    model_list = []
+    try:
+        from providers import get_provider_profile
+        prof = get_provider_profile(provider_id)
+        model_list = list(getattr(prof, "fallback_models", ()) or [])
+    except Exception:
+        model_list = []
+    if not model_list:
+        model_list = ["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"]
+
+    selected = _prompt_model_selection(model_list, current_model=current_model)
+    if not selected:
+        print("No change.")
+        return
+
+    _save_model_choice(selected)
+
+    # Persist provider + api_mode. The runtime resolver (resolve_runtime_provider)
+    # is the authoritative source of api_mode for this provider, but writing it
+    # here keeps config.yaml self-describing. claude-local has no endpoint, so
+    # base_url is left empty.
+    cfg = load_config()
+    model = cfg.get("model")
+    if not isinstance(model, dict):
+        model = {"default": model} if model else {}
+        cfg["model"] = model
+    model["provider"] = provider_id
+    model["api_mode"] = "claude_local"
+    model.pop("base_url", None)
+    clear_model_endpoint_credentials(model, clear_api_mode=False)
+    save_config(cfg)
+    deactivate_provider()
+
+    print(f"Default model set to: {selected} (via Claude Local CLI)")
+
+
 def _model_flow_kimi(config, current_model=""):
     """Kimi / Moonshot model selection with automatic endpoint routing.
 

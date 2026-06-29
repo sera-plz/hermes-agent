@@ -139,6 +139,17 @@ RUN npm install --prefer-offline --no-audit && \
     npx playwright install --with-deps chromium --only-shell && \
     npm cache clean --force
 
+# ---------- Claude Code CLI (claude-local provider) ----------
+# The `claude-local` model provider shells out to the `claude` binary
+# (Claude Code) and authenticates via the subscription credential store /
+# CLAUDE_CODE_OAUTH_TOKEN — see CLAUDE_LOCAL_CONFIG.md. The base image does
+# not otherwise ship the CLI, so install it globally here and clean the
+# npm cache to keep the layer small. `claude --version` is run at build
+# time as a smoke test so a broken/missing binary fails the build loudly.
+RUN npm install -g @anthropic-ai/claude-code && \
+    npm cache clean --force && \
+    claude --version
+
 # ---------- Layer-cached Python dependency install ----------
 # Copy only pyproject.toml + uv.lock so the Python dep resolve + wheel
 # download + native-extension compile layer is cached unless those inputs

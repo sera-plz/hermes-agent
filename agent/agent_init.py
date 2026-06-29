@@ -326,8 +326,11 @@ def init_agent(
     agent.provider = provider_name or ""
     agent.acp_command = acp_command or command
     agent.acp_args = list(acp_args or args or [])
-    if api_mode in {"chat_completions", "codex_responses", "anthropic_messages", "bedrock_converse", "codex_app_server"}:
+    if api_mode in {"chat_completions", "codex_responses", "anthropic_messages", "bedrock_converse", "codex_app_server", "claude_local"}:
         agent.api_mode = api_mode
+    elif agent.provider in {"claude-local", "claude_local"}:
+        # claude-local routes through the local `claude` CLI subprocess.
+        agent.api_mode = "claude_local"
     elif agent.provider == "openai-codex":
         agent.api_mode = "codex_responses"
     elif agent.provider in {"xai", "xai-oauth"}:
@@ -794,6 +797,16 @@ def init_agent(
         if not agent.quiet_mode:
             _gr_label = " + Guardrails" if agent._bedrock_guardrail_config else ""
             print(f"🤖 AI Agent initialized with model: {agent.model} (AWS Bedrock, {agent._bedrock_region}{_gr_label})")
+    elif agent.api_mode == "claude_local":
+        # claude-local executes each turn via the local `claude` CLI subprocess
+        # (see agent/claude_local_runtime.py). No HTTP client is needed — auth
+        # lives in Claude's own credential store (~/.claude), and the dispatch
+        # in chat_completion_helpers routes straight to run_claude_local().
+        agent.client = None
+        agent._client_kwargs = {}
+        agent.api_key = api_key or "claude-local-subprocess"
+        if not agent.quiet_mode:
+            print(f"🤖 AI Agent initialized with model: {agent.model} (Claude Local CLI subprocess)")
     else:
         if api_key and base_url:
             # Explicit credentials from CLI/gateway — construct directly.

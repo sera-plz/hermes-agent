@@ -48,6 +48,19 @@ def _getenv(name: str, default: str = "") -> str:
     return val if val is not None else default
 
 
+def _normalize_provider_alias(value: str) -> str:
+    """Canonicalize a provider id/alias (e.g. claude_local → claude-local).
+
+    Lazy import keeps the providers module off this module's import-time path.
+    Falls back to a bare lowercase on any failure.
+    """
+    try:
+        from hermes_cli.providers import normalize_provider
+        return normalize_provider(value or "")
+    except Exception:
+        return (value or "").strip().lower()
+
+
 def _normalize_custom_provider_name(value: str) -> str:
     return value.strip().lower().replace(" ", "-")
 
@@ -1451,6 +1464,23 @@ def resolve_runtime_provider(
             "base_url": "moa://local",
             "api_key": "moa-virtual-provider",
             "source": "moa-virtual-provider",
+            "requested_provider": requested_provider,
+        }
+
+    # claude-local: route each turn through the local `claude` CLI subprocess
+    # (Claude Code subscription auth in ~/.claude). There is no HTTP endpoint and
+    # no API key — the subprocess owns its own credentials. Resolve before the
+    # custom/pool/generic paths so this never falls through to the OpenRouter
+    # resolver (which would send the turn to the wrong place). Mirrors the moa
+    # virtual-provider short-circuit above. Aliases (claude_local/claude-cli/...)
+    # canonicalize via normalize_provider.
+    if _normalize_provider_alias(requested_provider) == "claude-local":
+        return {
+            "provider": "claude-local",
+            "api_mode": "claude_local",
+            "base_url": "claude-local://subprocess",
+            "api_key": "claude-local-subprocess",
+            "source": "claude-cli-subprocess",
             "requested_provider": requested_provider,
         }
 

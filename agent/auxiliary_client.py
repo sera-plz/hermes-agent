@@ -202,6 +202,19 @@ _PROVIDER_ALIASES = {
     "minimax_cn": "minimax-cn",
     "claude": "anthropic",
     "claude-code": "anthropic",
+    # The claude-local main provider shells out to the `claude` CLI for the
+    # primary turn, but the CLI has no batch/side-channel mode for auxiliary
+    # tasks (title generation, compaction, summarization, memory flush). Route
+    # those through the Anthropic Messages API instead, authenticated by the
+    # same Claude subscription OAuth token (CLAUDE_CODE_OAUTH_TOKEN) the CLI
+    # uses — _try_anthropic() injects the Claude Code identity so the token is
+    # accepted. Without this, claude-local sessions log "unknown provider
+    # 'claude-local'" and lose compaction/summarization entirely.
+    "claude-local": "anthropic",
+    "claude_local": "anthropic",
+    "claude-cli": "anthropic",
+    "claude-sub": "anthropic",
+    "claude-code-local": "anthropic",
     "github": "copilot",
     "github-copilot": "copilot",
     "github-model": "copilot",
